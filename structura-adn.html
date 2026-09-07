@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADN — Componentele moleculei</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #eef2f6;
+    --card: #ffffff;
+    --line: #dde3ea;
+    --ink: #1c2530;
+    --muted: #5c6b7d;
+    --accent: #2f7fd6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:2.2rem 1rem 3rem;
+  }
+  header{ text-align:center; margin-bottom:0.4rem; max-width:520px; }
+  header .eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:0.78rem; letter-spacing:0.02em;
+    color:var(--accent); display:block; margin-bottom:0.4rem;
+  }
+  h1{
+    font-family:'Fraunces', serif; font-weight:600; font-size:clamp(1.8rem,4.5vw,2.6rem);
+    margin:0; letter-spacing:-0.01em;
+  }
+  header p{
+    color:var(--muted); margin:0.6rem auto 0; font-size:0.98rem;
+  }
+
+  .stage{ position:relative; width:min(94vw, 560px); margin-top:1.2rem; }
+  .viewport{
+    position:relative; width:100%; aspect-ratio: 4/4.6;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    box-shadow: 0 18px 40px rgba(20,40,70,0.08);
+    overflow:hidden;
+  }
+  canvas#gl{ width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+  canvas#gl.dragging{ cursor:grabbing; }
+
+  #reset-btn{
+    position:absolute; top:0.9rem; left:0.9rem;
+    background:rgba(255,255,255,0.92); border:1px solid var(--line); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem;
+    padding:0.5rem 0.9rem; border-radius:20px; cursor:pointer;
+    opacity:0; pointer-events:none; transform:translateY(-6px);
+    transition: opacity .3s ease, transform .3s ease;
+    z-index:5; box-shadow:0 4px 12px rgba(20,40,70,0.12);
+  }
+  #reset-btn.show{ opacity:1; pointer-events:all; transform:translateY(0); }
+  #reset-btn:hover{ border-color:var(--accent); }
+
+  .info-panel{
+    position:absolute; left:50%; bottom:1rem;
+    transform: translate(-50%, 16px);
+    width:min(88%, 460px);
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:1.1rem 1.3rem;
+    opacity:0; pointer-events:none;
+    transition: opacity .35s ease, transform .35s ease;
+    z-index:6;
+    box-shadow: 0 14px 30px rgba(20,40,70,0.14);
+  }
+  .info-panel.show{ opacity:1; transform:translate(-50%, 0); pointer-events:all; }
+  .info-panel .row{ display:flex; align-items:center; gap:0.6rem; margin-bottom:0.4rem; }
+  .info-dot{ width:0.85rem; height:0.85rem; border-radius:50%; flex:none; }
+  .info-panel h3{
+    font-family:'Fraunces', serif; font-size:1.15rem; margin:0; color:var(--ink); font-weight:600;
+  }
+  .info-panel p{ margin:0; color:var(--muted); font-size:0.92rem; line-height:1.55; }
+  .info-close{
+    position:absolute; top:0.6rem; right:0.7rem; background:none; border:none;
+    color:var(--muted); font-size:1.1rem; cursor:pointer; line-height:1;
+  }
+  .info-close:hover{ color:var(--ink); }
+
+  .hint{
+    color:var(--muted); font-size:0.88rem; text-align:center; margin-top:1.3rem;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .legend{ color:#8393a6; font-size:0.85rem; text-align:center; margin-top:0.5rem; max-width:40ch; }
+
+  .manual{ width:min(94vw, 760px); margin-top:2.6rem; }
+  .manual .kicker{
+    font-family:'IBM Plex Mono', monospace; font-size:0.78rem; color:var(--accent);
+    text-align:center; display:block; margin-bottom:0.3rem;
+  }
+  .manual h2{
+    font-family:'Fraunces', serif; font-weight:600; font-size:1.5rem; text-align:center; margin:0 0 1.6rem 0;
+  }
+  .note-grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media (max-width:680px){ .note-grid{ grid-template-columns:1fr; } }
+  .note-card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1.2rem 1.35rem;
+  }
+  .note-card h3{
+    font-family:'Fraunces', serif; font-size:1.05rem; font-weight:600; margin:0 0 0.5rem 0; color:var(--ink);
+  }
+  .note-card p{ margin:0; color:var(--muted); font-size:0.9rem; line-height:1.6; }
+  .note-card.wide{ grid-column: 1 / -1; }
+  .note-card .timeline{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+  .note-card .timeline li{ font-size:0.9rem; color:var(--muted); line-height:1.5; }
+  .note-card .timeline b{ color:var(--ink); font-family:'IBM Plex Mono', monospace; font-weight:500; }
+  .manual .source{
+    text-align:center; color:#9aa7b8; font-size:0.78rem; margin-top:1.2rem; font-family:'IBM Plex Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">BIOLOGIE · MODEL 3D</span>
+  <h1>ADN — părțile componente</h1>
+  <p>Trage pentru a roti molecula. Apasă pe schelă sau pe o bază azotată pentru a vedea funcția ei.</p>
+</header>
+
+<div class="stage">
+  <div class="viewport" id="viewport">
+    <canvas id="gl"></canvas>
+    <button id="reset-btn">↺ Vezi toată molecula</button>
+    <div class="info-panel" id="info-panel">
+      <button class="info-close" id="info-close">×</button>
+      <div class="row"><span class="info-dot" id="info-dot"></span><h3 id="info-title"></h3></div>
+      <p id="info-text"></p>
+    </div>
+  </div>
+</div>
+
+<p class="hint">trage pentru a roti · apasă pe o piesă</p>
+<p class="legend">Regula complementarității: A se împerechează mereu cu T, iar G mereu cu C.</p>
+
+<section class="manual">
+  <span class="kicker">BIOLOGIE · CLASA A XII-A · CAPITOLUL 1, TEMA 1.1</span>
+  <h2>Din manualul de Biologie</h2>
+  <div class="note-grid">
+
+    <div class="note-card">
+      <h3>Regula lui Chargaff</h3>
+      <p>Într-o moleculă de ADN, cantitatea de adenină este egală cu cea de timină, iar cantitatea de guanină este egală cu cea de citozină (A = T, G = C). Cu alte cuvinte, cantitatea totală de baze purinice este egală cu cea de baze pirimidinice.</p>
+    </div>
+
+    <div class="note-card">
+      <h3>Dimensiunile dublei helix</h3>
+      <p>Diametrul dublei helix este de 20 Å. Două baze azotate complementare sunt distanțate la 3,4 Å, iar o rotație completă a helixului cuprinde 10 perechi de baze (34 Å). Majoritatea moleculelor de ADN au o răsucire spre dreapta — forma B-ADN.</p>
+    </div>
+
+    <div class="note-card">
+      <h3>Legăturile dintre catene</h3>
+      <p>În interiorul unei catene, nucleotidele sunt unite prin legături fosfodiesterice, între carbonii 5' și 3' ai pentozelor vecine. Cele două catene sunt ținute împreună prin legături de hidrogen dintre bazele complementare — două între A și T, trei între G și C — ceea ce le conferă o orientare antiparalelă.</p>
+    </div>
+
+    <div class="note-card">
+      <h3>Denaturarea ADN-ului</h3>
+      <p>La temperaturi de 80–100 °C sau la un pH extrem (între 3 și 10), legăturile de hidrogen dintre catene se rup și molecula se denaturează. La răcire, în jur de 65 °C, dubla helix își poate reface structura (renaturare).</p>
+    </div>
+
+    <div class="note-card wide">
+      <h3>Ce este o genă</h3>
+      <p>Gena poate fi definită prin trei termeni: fizic — un segment de cromozom ce conține o secvență particulară de nucleotide; funcțional — o unitate care se transcrie într-o moleculă de ARNm și se traduce apoi într-un lanț polipeptidic; genetic — o unitate de bază ce determină un anumit caracter ereditar. Genele sunt localizate în cromozomi, aranjate liniar, fiecare ocupând o poziție numită locus.</p>
+    </div>
+
+    <div class="note-card wide">
+      <h3>Un pic de istorie</h3>
+      <ul class="timeline">
+        <li><b>1944</b> — O. Avery, C. MacLeod și M. McCarty demonstrează experimental că ADN-ul, și nu proteinele, este purtătorul material al informației ereditare.</li>
+        <li><b>după 1947</b> — E. Chargaff și colaboratorii stabilesc regula echivalenței bazelor azotate purinice și pirimidinice.</li>
+        <li><b>1953</b> — pe baza investigațiilor lui M. Wilkins, J. Watson și F. Crick elucidează structura fină de dublă helix a moleculei de ADN.</li>
+      </ul>
+    </div>
+
+  </div>
+  <p class="source">Sursă: Bîrnaz, N., Leșanu, M. — Biologie, manual pentru clasa a 12-a, Editura Prut Internațional, 2024, tema 1.1</p>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  const canvas = document.getElementById('gl');
+  const viewport = document.getElementById('viewport');
+  const resetBtn = document.getElementById('reset-btn');
+  const panel = document.getElementById('info-panel');
+  const panelTitle = document.getElementById('info-title');
+  const panelText = document.getElementById('info-text');
+  const panelDot = document.getElementById('info-dot');
+  const infoClose = document.getElementById('info-close');
+
+  const infoData = {
+    schela: {
+      title: "Coloana vertebrală (schelă)",
+      color: "#2f7fd6",
+      text: "Alternanța grupărilor fosfat și a zahărului dezoxiriboză formează scheletul fiecărei catene. Fosfatul leagă un nucleotid de următorul; zahărul poartă baza azotată."
+    },
+    adenina: {
+      title: "Adenină (A)",
+      color: "#43a047",
+      text: "Bază purinică, cu structură de inel dublu. Se împerechează mereu cu timina, prin două punți de hidrogen."
+    },
+    timina: {
+      title: "Timină (T)",
+      color: "#e53935",
+      text: "Bază pirimidinică, cu un singur inel. Se împerechează mereu cu adenina. În molecula de ARN, timina este înlocuită de uracil."
+    },
+    guanina: {
+      title: "Guanină (G)",
+      color: "#1e88e5",
+      text: "Bază purinică, cu structură de inel dublu. Se împerechează mereu cu citozina, prin trei punți de hidrogen."
+    },
+    citozina: {
+      title: "Citozină (C)",
+      color: "#fbc02d",
+      text: "Bază pirimidinică, cu un singur inel. Se împerechează mereu cu guanina."
+    },
+    hbonds: {
+      title: "Punți de hidrogen",
+      color: "#f2e9a1",
+      text: "Legături slabe care țin cele două catene împreună, în punctul unde se întâlnesc cele două baze. Slăbiciunea lor permite desfacerea catenelor în timpul replicării."
+    }
+  };
+
+  // ---------- THREE SETUP ----------
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1000);
+
+  const DEFAULT_POS = new THREE.Vector3(9, 3, 30);
+  const DEFAULT_TARGET = new THREE.Vector3(0, 0, 0);
+  camera.position.copy(DEFAULT_POS);
+  camera.lookAt(DEFAULT_TARGET);
+  let currentTarget = DEFAULT_TARGET.clone();
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0xdde3ea, 0.75);
+  scene.add(hemi);
+  const key = new THREE.DirectionalLight(0xffffff, 0.85);
+  key.position.set(12, 16, 12);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xbcd7ff, 0.35);
+  fill.position.set(-10, -6, -8);
+  scene.add(fill);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  // ---------- HELIX GEOMETRY ----------
+  const RADIUS = 4.3, HEIGHT = 30, TURNS = 3;
+  function helixPoint(t, phaseOffset){
+    const angle = t*TURNS*Math.PI*2 + phaseOffset;
+    const y = (t-0.5)*HEIGHT;
+    return new THREE.Vector3(RADIUS*Math.cos(angle), y, RADIUS*Math.sin(angle));
+  }
+
+  class HelixCurve extends THREE.Curve {
+    constructor(phaseOffset){ super(); this.phaseOffset = phaseOffset; }
+    getPoint(t){ return helixPoint(t, this.phaseOffset); }
+  }
+
+  const backboneMat = new THREE.MeshPhongMaterial({ color:0x2f7fd6, shininess:110, specular:0xbfe0ff });
+  const tubeGeoL = new THREE.TubeGeometry(new HelixCurve(0), 220, 0.55, 12, false);
+  const tubeGeoR = new THREE.TubeGeometry(new HelixCurve(Math.PI), 220, 0.55, 12, false);
+  const tubeL = new THREE.Mesh(tubeGeoL, backboneMat);
+  const tubeR = new THREE.Mesh(tubeGeoR, backboneMat);
+  tubeL.userData.key = 'schela';
+  tubeR.userData.key = 'schela';
+  group.add(tubeL, tubeR);
+
+  function cylinderBetween(p1, p2, radius, material){
+    const dir = new THREE.Vector3().subVectors(p2, p1);
+    const len = dir.length();
+    const geo = new THREE.CylinderGeometry(radius, radius, len, 10, 1, false);
+    const mesh = new THREE.Mesh(geo, material);
+    const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+    mesh.position.copy(mid);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+    return mesh;
+  }
+
+  const matA = new THREE.MeshPhongMaterial({ color:0x43a047, shininess:80 });
+  const matT = new THREE.MeshPhongMaterial({ color:0xe53935, shininess:80 });
+  const matG = new THREE.MeshPhongMaterial({ color:0x1e88e5, shininess:80 });
+  const matC = new THREE.MeshPhongMaterial({ color:0xfbc02d, shininess:80 });
+  const matHB = new THREE.MeshPhongMaterial({ color:0xf2e9a1, shininess:120, specular:0xffffff });
+
+  const interactive = [tubeL, tubeR];
+  const RUNGS = 30;
+  for(let i=1;i<RUNGS-1;i++){
+    const t = i/(RUNGS-1);
+    const left = helixPoint(t, 0);
+    const right = helixPoint(t, Math.PI);
+    const mid = new THREE.Vector3().addVectors(left, right).multiplyScalar(0.5);
+    const isAT = i % 2 === 0;
+    const leftMat = isAT ? matA : matG;
+    const rightMat = isAT ? matT : matC;
+    const leftKey = isAT ? 'adenina' : 'guanina';
+    const rightKey = isAT ? 'timina' : 'citozina';
+
+    const leftRod = cylinderBetween(left, mid, 0.3, leftMat);
+    leftRod.userData.key = leftKey;
+    const rightRod = cylinderBetween(right, mid, 0.3, rightMat);
+    rightRod.userData.key = rightKey;
+
+    const hbSphere = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12), matHB);
+    hbSphere.position.copy(mid);
+    hbSphere.userData.key = 'hbonds';
+
+    group.add(leftRod, rightRod, hbSphere);
+    interactive.push(leftRod, rightRod, hbSphere);
+  }
+
+  // fake soft ground shadow
+  (function addShadow(){
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createRadialGradient(128,128,0,128,128,128);
+    grad.addColorStop(0, 'rgba(20,30,45,0.35)');
+    grad.addColorStop(1, 'rgba(20,30,45,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,256,256);
+    const tex = new THREE.CanvasTexture(c);
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(18,18),
+      new THREE.MeshBasicMaterial({ map: tex, transparent:true, depthWrite:false })
+    );
+    plane.rotation.x = -Math.PI/2;
+    plane.position.y = -HEIGHT/2 - 0.8;
+    group.add(plane);
+  })();
+
+  // ---------- INTERACTION ----------
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  let isDragging = false, dragMoved = false, lastX = 0, lastY = 0, lastInteraction = 0;
+  let isZoomed = false;
+  let tween = null;
+
+  function screenToNDC(clientX, clientY){
+    const r = viewport.getBoundingClientRect();
+    pointerNDC.x = ((clientX - r.left) / r.width) * 2 - 1;
+    pointerNDC.y = -(((clientY - r.top) / r.height) * 2 - 1);
+  }
+
+  function pick(clientX, clientY){
+    screenToNDC(clientX, clientY);
+    raycaster.setFromCamera(pointerNDC, camera);
+    const hits = raycaster.intersectObjects(interactive, false);
+    return hits.length ? hits[0].object : null;
+  }
+
+  function easeInOutCubic(x){ return x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+
+  function startTween(toPos, toTarget, duration){
+    tween = {
+      fromPos: camera.position.clone(), toPos: toPos.clone(),
+      fromTarget: currentTarget.clone(), toTarget: toTarget.clone(),
+      start: performance.now(), duration: duration || 900
+    };
+  }
+
+  function zoomToMesh(mesh){
+    const worldPos = new THREE.Vector3();
+    mesh.getWorldPosition(worldPos);
+    const dir = camera.position.clone().sub(currentTarget).normalize();
+    const newPos = worldPos.clone().add(dir.multiplyScalar(6.5));
+    startTween(newPos, worldPos, 850);
+    isZoomed = true;
+    resetBtn.classList.add('show');
+  }
+
+  function resetView(){
+    startTween(DEFAULT_POS, DEFAULT_TARGET, 750);
+    isZoomed = false;
+    resetBtn.classList.remove('show');
+    hideInfo();
+  }
+
+  function showInfo(key){
+    const d = infoData[key];
+    if(!d) return;
+    panelTitle.textContent = d.title;
+    panelText.textContent = d.text;
+    panelDot.style.background = d.color;
+    panel.classList.add('show');
+  }
+  function hideInfo(){ panel.classList.remove('show'); }
+
+  canvas.addEventListener('pointerdown', (e)=>{
+    isDragging = true; dragMoved = false;
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e)=>{
+    if(!isDragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    if(Math.abs(dx) + Math.abs(dy) > 4) dragMoved = true;
+    if(dragMoved && !isZoomed){
+      group.rotation.y += dx * 0.006;
+    }
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  canvas.addEventListener('pointerup', (e)=>{
+    isDragging = false;
+    canvas.classList.remove('dragging');
+    lastInteraction = performance.now();
+    if(!dragMoved){
+      const hit = pick(e.clientX, e.clientY);
+      if(hit){ zoomToMesh(hit); showInfo(hit.userData.key); }
+      else if(isZoomed){ resetView(); }
+    }
+  });
+
+  resetBtn.addEventListener('click', resetView);
+  infoClose.addEventListener('click', resetView);
+
+  // ---------- RESIZE ----------
+  function resize(){
+    const w = viewport.clientWidth, h = viewport.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- ANIMATE ----------
+  function animate(now){
+    requestAnimationFrame(animate);
+
+    if(tween){
+      const e = Math.min(1, (now - tween.start) / tween.duration);
+      const k = easeInOutCubic(e);
+      camera.position.lerpVectors(tween.fromPos, tween.toPos, k);
+      currentTarget.lerpVectors(tween.fromTarget, tween.toTarget, k);
+      if(e >= 1) tween = null;
+    }
+    camera.lookAt(currentTarget);
+
+    if(!isDragging && !isZoomed && now - lastInteraction > 1500){
+      group.rotation.y += 0.0022;
+    }
+
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+
+</body>
+</html>
