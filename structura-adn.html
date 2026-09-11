@@ -93,6 +93,20 @@
   }
   .legend{ color:#8393a6; font-size:0.85rem; text-align:center; margin-top:0.5rem; max-width:40ch; }
 
+  .key-legend{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:0.55rem;
+    width:min(94vw, 560px); margin-top:1rem;
+  }
+  .key-btn{
+    display:flex; align-items:center; gap:0.5rem;
+    background:var(--card); border:1px solid var(--line); border-radius:20px;
+    padding:0.4rem 0.85rem 0.4rem 0.6rem; font-family:'IBM Plex Sans', sans-serif; font-size:0.82rem;
+    color:var(--ink); cursor:pointer; transition: border-color .2s ease, transform .15s ease;
+  }
+  .key-btn:hover{ border-color:var(--accent); }
+  .key-btn.active{ border-color:var(--accent); background:#eaf2fc; }
+  .key-dot{ width:0.7rem; height:0.7rem; border-radius:50%; flex:none; }
+
   .manual{ width:min(94vw, 760px); margin-top:2.6rem; }
   .manual .kicker{
     font-family:'IBM Plex Mono', monospace; font-size:0.78rem; color:var(--accent);
@@ -125,7 +139,7 @@
   <span class="eyebrow">BIOLOGIE · MODEL 3D</span>
   <h1>ADN — părțile componente</h1>
   <p class="author">Arghiri Bianca · grupa PAA2411</p>
-  <p>Trage pentru a roti molecula. Apasă pe schelă sau pe o bază azotată pentru a vedea funcția ei.</p>
+  <p>Trage pentru a roti molecula. Apasă pe fosfat, pe zahăr sau pe o bază azotată pentru a vedea funcția ei.</p>
 </header>
 
 <div class="stage">
@@ -140,7 +154,19 @@
   </div>
 </div>
 
-<p class="hint">trage pentru a roti · apasă pe o piesă</p>
+<p class="hint">trage pentru a roti · apasă pe o piesă sau pe un buton de mai jos</p>
+
+<div class="key-legend" id="key-legend">
+  <button class="key-btn" data-key="schela"><span class="key-dot" style="background:#2f7fd6"></span>Schelă (fosfat + zahăr)</button>
+  <button class="key-btn" data-key="fosfat"><span class="key-dot" style="background:#f0a020"></span>Grup fosfat</button>
+  <button class="key-btn" data-key="zahar"><span class="key-dot" style="background:#aeb9c4"></span>Dezoxiriboză</button>
+  <button class="key-btn" data-key="adenina"><span class="key-dot" style="background:#43a047"></span>Adenină (A)</button>
+  <button class="key-btn" data-key="timina"><span class="key-dot" style="background:#e53935"></span>Timină (T)</button>
+  <button class="key-btn" data-key="guanina"><span class="key-dot" style="background:#1e88e5"></span>Guanină (G)</button>
+  <button class="key-btn" data-key="citozina"><span class="key-dot" style="background:#fbc02d"></span>Citozină (C)</button>
+  <button class="key-btn" data-key="hbonds"><span class="key-dot" style="background:#f2e9a1"></span>Punți de hidrogen</button>
+</div>
+
 <p class="legend">Regula complementarității: A se împerechează mereu cu T, iar G mereu cu C.</p>
 
 <section class="manual">
@@ -203,6 +229,16 @@
       title: "Coloana vertebrală (schelă)",
       color: "#2f7fd6",
       text: "Alternanța grupărilor fosfat și a zahărului dezoxiriboză formează scheletul fiecărei catene. Fosfatul leagă un nucleotid de următorul; zahărul poartă baza azotată."
+    },
+    fosfat: {
+      title: "Grup fosfat",
+      color: "#f0a020",
+      text: "Leagă zaharul unui nucleotid de zaharul următorului, prin legături fosfodiesterice (între carbonii 5' și 3'). Sarcina sa negativă face din ADN o moleculă acidă."
+    },
+    zahar: {
+      title: "Dezoxiriboză",
+      color: "#aeb9c4",
+      text: "Zahărul cu cinci atomi de carbon care alternează cu grupările fosfat de-a lungul catenei; de el se leagă baza azotată, printr-o legătură glicozidică."
     },
     adenina: {
       title: "Adenină (A)",
@@ -296,6 +332,10 @@
   const matHB = new THREE.MeshPhongMaterial({ color:0xf2e9a1, shininess:120, specular:0xffffff });
 
   const interactive = [tubeL, tubeR];
+  const representative = {};
+  function remember(key, mesh){ if(!representative[key]) representative[key] = mesh; }
+  remember('schela', tubeL);
+
   const RUNGS = 30;
   for(let i=1;i<RUNGS-1;i++){
     const t = i/(RUNGS-1);
@@ -319,6 +359,52 @@
 
     group.add(leftRod, rightRod, hbSphere);
     interactive.push(leftRod, rightRod, hbSphere);
+    remember(leftKey, leftRod);
+    remember(rightKey, rightRod);
+    remember('hbonds', hbSphere);
+  }
+
+  // ---------- SUGAR (deoxyribose) + PHOSPHATE beads along each backbone ----------
+  const matSugar = new THREE.MeshPhongMaterial({ color:0xaeb9c4, shininess:70, specular:0xffffff });
+  const matPhosphate = new THREE.MeshPhongMaterial({ color:0xf0a020, shininess:90, specular:0xffe0a3 });
+
+  function pushOut(p, amount){
+    const radial = new THREE.Vector3(p.x, 0, p.z).normalize();
+    return p.clone().add(radial.multiplyScalar(amount));
+  }
+
+  for(let i=1;i<RUNGS-1;i++){
+    const t = i/(RUNGS-1);
+    const left = pushOut(helixPoint(t, 0), 0.5);
+    const right = pushOut(helixPoint(t, Math.PI), 0.5);
+
+    const sugarL = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 0), matSugar);
+    sugarL.position.copy(left);
+    sugarL.userData.key = 'zahar';
+    const sugarR = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 0), matSugar);
+    sugarR.position.copy(right);
+    sugarR.userData.key = 'zahar';
+    group.add(sugarL, sugarR);
+    interactive.push(sugarL, sugarR);
+    remember('zahar', sugarL);
+
+    if(i < RUNGS-2){
+      const t2 = (i+1)/(RUNGS-1);
+      const leftNext = pushOut(helixPoint(t2, 0), 0.5);
+      const rightNext = pushOut(helixPoint(t2, Math.PI), 0.5);
+      const midL = new THREE.Vector3().addVectors(left, leftNext).multiplyScalar(0.5);
+      const midR = new THREE.Vector3().addVectors(right, rightNext).multiplyScalar(0.5);
+
+      const phosL = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), matPhosphate);
+      phosL.position.copy(midL);
+      phosL.userData.key = 'fosfat';
+      const phosR = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), matPhosphate);
+      phosR.position.copy(midR);
+      phosR.userData.key = 'fosfat';
+      group.add(phosL, phosR);
+      interactive.push(phosL, phosR);
+      remember('fosfat', phosL);
+    }
   }
 
   // fake soft ground shadow
@@ -386,6 +472,7 @@
     isZoomed = false;
     resetBtn.classList.remove('show');
     hideInfo();
+    document.querySelectorAll('.key-btn').forEach(function(b){ b.classList.remove('active'); });
   }
 
   function showInfo(key){
@@ -426,6 +513,19 @@
 
   resetBtn.addEventListener('click', resetView);
   infoClose.addEventListener('click', resetView);
+
+  document.querySelectorAll('.key-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const key = btn.dataset.key;
+      const mesh = representative[key];
+      document.querySelectorAll('.key-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      if(mesh){
+        zoomToMesh(mesh);
+        showInfo(key);
+      }
+    });
+  });
 
   // ---------- RESIZE ----------
   function resize(){
